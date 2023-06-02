@@ -1,0 +1,128 @@
+#!/bin/bash
+vagrant up
+vagrant ssh
+sudo apt-get update
+sudo apt-get upgrade
+sudo apt-get install bash-completion
+
+#ssh root@ip
+ssh root@10.0.0.101
+exit
+
+sudo adduser batman
+sudo usermod -aG sudo batman
+groups batman
+su - batman
+exit # regresar al usuario previo
+
+sudo apt-get install mysql-server
+sudo apt-get install libmysqlclient-dev
+sudo apt-get install build-essential libssl-dev libffi-dev
+sudo apt-get install python3-dev
+sudo apt-get install python3-pip
+sudo apt-get install python3-venv
+
+git clone https://github.com/chernandez83/tiendaFlask.git
+
+python3 -m venv env
+source env/bin/activate
+pip install wheel
+pip install -r requirements.txt
+
+sudo mysql -u root
+CREATE USER 'batman'@'localhost' IDENTIFIED BY '';
+GRANT ALL PRIVILEGES ON *.* TO 'batman'@'localhost';
+CREATE DATABASE tiendaflask;
+exit
+
+cd DB
+mysql -u batman
+USE tiendaflask;
+SOURCE tiendaflask.sql;
+SHOW TABLES;
+exit
+
+nano config.py # cambiar usuario y crear config de producción
+class ProductionConfig(Config):
+    DEBUG = False
+    MYSQL_HOST='localhost'
+    MYSQL_USER='batman'
+    #MYSQL_PASSWORD='123456'
+    MYSQL_DB='tiendaflask'
+    MAIL_SERVER = 'smtp.sendgrid.net'
+    MAIL_PORT = 587
+    MAIL_USE_TLS = True
+    MAIL_USERNAME = config('MAIL_USERNAME')
+    MAIL_PASSWORD = config('MAIL_PASSWORD')
+    MAIL_SENDER = config('MAIL_SENDER')
+
+config = {
+    'development': DevelopmentConfig,
+    'default': DevelopmentConfig,
+    'production': ProductionConfig,
+}
+
+nano manage.py # cambiar ambiente a producción
+configuracion = config['production']
+
+nano .env # pegar secretos
+
+python manage.py run # visible solo local
+python manage.py run --host=0.0.0.0 # visible desde fuera
+
+pip install gunicorn
+nano wsgi.py
+################################
+from manage import app
+
+if __name__ == '__main__':
+    app.run()
+################################
+
+gunicorn --bind 0.0.0.0:5000 wsgi:app
+
+sudo adduser vagrant www-data
+
+# Establezca un valor de umask de 007 para que el archivo de socket se
+# cree para dar acceso al propietario y al grupo, mientras restringe otros accesos
+sudo nano /etc/systemd/system/tiendaFlask.service
+[Unit]
+Description=Servicio para tiendaflask
+After=network.target
+
+[Service]
+User=vagrant
+Group=www-data
+WorkingDirectory=/home/vagrant/tiendaFlask
+Environment="PAHT=/home/vagrant/env/bin"
+ExecStart=/home/vagrant/env/bin/gunicorn --workers 3 --bind unix:tiendaFlask.sock -m 007 wsgi:app
+
+[Install]
+WantedBy=multi.user.target
+
+sudo systemctl enable tiendaFlask
+sudo systemctl start tiendaFlask
+sudo systemctl restart tiendaFlask
+sudo systemctl status tiendaFlask
+sudo systemctl stop tiendaFlask
+sudo systemctl daemon-reload
+
+
+sudo apt-get install nginx
+sudo nano /etc/nginx/sites-available/tiendaFlask
+server {
+    listen 80;
+    server_name 10.0.0.101;
+    location / {
+        include proxy_params;
+        proxy_pass http://unix:/home/vagrant/tiendaFlask/tiendaFlask.sock;
+    }
+}
+
+sudo ln -s /etc/nginx/sites-available/tiendaFlask /etc/nginx/sites-enabled
+sudo nginx -t
+sudo systemctl restart nginx
+
+sudo adduser www-data vagrant # el proxy es de vagrant, www-data no tenía permiso
+cat /var/log/nginx/access.log
+cat /var/log/nginx/error.log
