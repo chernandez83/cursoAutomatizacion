@@ -1,0 +1,41 @@
+#!/bin/bash
+# comandos remotos mediante ssh
+source env/bin/activate
+pip install fabric
+
+nano fabfile.py
+#############################################
+from fabric import task
+
+
+@task
+def hola_mundo(context):
+    print('Hola mundo, desde fabric3')
+
+
+@task
+def bye(c):
+    print('Bye!')
+
+#############################################
+
+fab -l
+fab hola-mundo
+fab bye
+fab hola-mundo bye
+
+nano fabfile.py
+#############################################
+from fabric import task, Connection
+
+connection = Connection('10.0.0.101', user='batman', port=22, connect_kwargs={'password': '123'})
+
+@task
+def show_dir(context):
+    result = connection.run('uname -a')
+    print(result)
+#############################################
+
+fab -l
+fab show-dir
+fab -H 10.0.0.101 show-dir
