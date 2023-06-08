@@ -98,14 +98,18 @@ Environment="PAHT=/home/vagrant/env/bin"
 ExecStart=/home/vagrant/env/bin/gunicorn --workers 3 --bind unix:tiendaFlask.sock -m 007 wsgi:app
 
 [Install]
-WantedBy=multi.user.target
+WantedBy=multi-user.target
 
+sudo systemctl disable tiendaFlask
 sudo systemctl enable tiendaFlask
 sudo systemctl start tiendaFlask
 sudo systemctl restart tiendaFlask
 sudo systemctl status tiendaFlask
 sudo systemctl stop tiendaFlask
 sudo systemctl daemon-reload
+
+sudo journalctl -u tiendaFlask
+systemd-analyze dot tiendaFlask.service
 
 
 sudo apt-get install nginx
